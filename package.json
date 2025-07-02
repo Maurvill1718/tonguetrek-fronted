@@ -1,0 +1,20 @@
+{
+  "name": "tonguetrek-api",
+  "version": "1.0.0",
+  "description": "API RESTful para la gestión de clientes y autenticación de la plataforma TongueTrek.",
+  "main": "datos.js",
+  "scripts": {
+    "dev": "node --watch datos.js"
+  },
+  "author": "Mauricio Villegas",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.10.0",
+    "nodemailer": "^6.9.14"
+  }
+}
