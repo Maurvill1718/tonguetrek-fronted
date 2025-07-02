@@ -91,6 +91,19 @@ buscarClientePorDocumento: async (documento) => {
   reiniciarIntentosPreguntas: async (documento) => {
     const sql = "UPDATE clientes SET intentos_preguntas_fallidos = 0 WHERE documento = ?";
     await pool.execute(sql, [documento]);
+  },
+
+  actualizarContrasena: async (id, nuevaContrasenaHash) => {
+  }, 
+
+  desactivarCuenta: async (id) => {
+    const sql = "UPDATE clientes SET estado = 'inactiva' WHERE id = ?";
+    await pool.execute(sql, [id]);
+  },
+
+  revocarTodosLosTokensPorDocumento: async (documento) => {
+    const sql = "UPDATE tokens SET estado = 'revocado' WHERE documento = ? AND tipo = 'acceso' AND estado = 'activo'";
+    await pool.execute(sql, [documento]);
   }
 
 };

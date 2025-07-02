@@ -16,6 +16,9 @@ router.get('/recuperar/preguntas/:documento', ClienteControlador.obtenerPregunta
 // ✅ NUEVA RUTA: completar perfil por primera vez
 router.post('/perfil', authMiddleware, ClienteControlador.completarPerfil);
 
+// Ruta para eliminar (desactivar) la propia cuenta
+router.delete('/perfil', authMiddleware, ClienteControlador.eliminarCuenta);
+
 // ✅ RUTA EXISTENTE: modificar perfil ya creado
 router.put('/perfil', authMiddleware, ClienteControlador.modificarPerfil);
 

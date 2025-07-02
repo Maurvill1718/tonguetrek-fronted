@@ -1,0 +1,5 @@
+# Dependencias de Node (pesan mucho)
+node_modules
+
+# Archivo de secretos y contraseñas
+.env

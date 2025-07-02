@@ -89,32 +89,45 @@ class ClienteControlador {
     }
   }
 
+  /**
+   * Valida credenciales del cliente e iniciar sesión.
+   * Incluye control de intentos fallidos, bloqueo de cuenta y notificación por correo.
+   */
   static async validarCredencial(req, res) {
     try {
       const { t1: correo, t2: contrasena } = req.body;
+
       if (!correo || !contrasena) {
         return res.status(400).json({ error: 'Los campos t1 (correo) y t2 (contraseña) son obligatorios.' });
       }
 
       const usuario = await modelo.buscaCorreo(correo);
-      if (!usuario) {
+
+      // Verificación 1: Si el usuario no existe o su cuenta fue eliminada ('inactiva'),
+      // se devuelve un error genérico para no dar pistas.
+      if (!usuario || usuario.estado === 'inactiva') {
         return res.status(401).json({ error: 'Credenciales incorrectas.' });
       }
 
-      if (usuario.estado !== 'activo') { 
-        return res.status(403).json({ error: 'Cuenta bloqueada. Contacte a soporte.' });
+      // Verificación 2: Si la cuenta está bloqueada (por cualquier motivo), se informa.
+      if (usuario.estado.startsWith('bloqueado')) {
+        return res.status(403).json({ error: 'Cuenta bloqueada. Contacte a soporte o recupere su contraseña.' });
       }
 
       const coincide = await bcrypt.compare(contrasena, usuario.contrasena);
+
+      // Verificación 3: Si la contraseña es incorrecta.
       if (!coincide) {
         await modelo.incrementarIntentos(correo);
-        // Volvemos a buscar al usuario para tener el conteo actualizado
+        // Volvemos a buscar al usuario para tener el conteo de intentos actualizado. ¡Buena lógica!
         const usuarioActualizado = await modelo.buscaCorreo(correo);
         const intentosRestantes = MAX_ATTEMPTS - usuarioActualizado.intentos_fallidos;
 
         if (intentosRestantes <= 0) {
-          await modelo.bloquearUsuario(correo, 'bloqueado_por_login');
+          // Bloqueamos la cuenta y especificamos el motivo.
+          await modelo.bloquearUsuario(correo, 'bloqueado_login');
           
+          // Enviamos el correo de notificación de bloqueo. ¡Excelente adición!
           const asunto = 'Alerta de Seguridad: Tu cuenta en TongueTrek ha sido bloqueada';
           const cuerpoHtml = 
             `Hola ${usuarioActualizado.nombre},<br><br>
@@ -134,16 +147,15 @@ class ClienteControlador {
 
       await modelo.reiniciarIntentos(correo);
 
-      const payload = {
-        id: usuario.id,
-        correo: usuario.correo,
-        documento: usuario.documento
-      };
-
+      // Se genera el token de acceso.
+      const payload = { id: usuario.id, correo: usuario.correo, documento: usuario.documento };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+      
+      // Se guarda el token en la base de datos como tipo 'acceso'.
       const decodedToken = jwt.decode(token);
       await modelo.guardarToken(usuario.documento, token, decodedToken.exp, 'acceso');
 
+      // Se prepara la respuesta final sin la contraseña.
       const { contrasena: pass, ...usuarioSinPass } = usuario;
       return res.status(200).json({
         mensaje: 'Inicio de sesión exitoso',
@@ -152,6 +164,7 @@ class ClienteControlador {
       });
 
     } catch (error) {
+      console.error(error);
       return res.status(500).json({ error: 'Error del servidor: ' + error.message });
     }
   }
@@ -389,6 +402,40 @@ class ClienteControlador {
       return res.status(500).json({ error: 'Error del servidor.' });
     }
   }
+
+  static async eliminarCuenta(req, res) {
+    try {
+      // Obtenemos los datos del usuario desde el token verificado por el middleware
+      const { id, correo, nombre, documento } = req.usuario;
+
+      // 1. Marcamos la cuenta del cliente como 'inactiva' en la tabla clientes
+      await modelo.desactivarCuenta(id);
+      console.log(`[OK] Cuenta del usuario ${id} marcada como inactiva.`);
+
+      // 2. Por seguridad, revocamos TODOS los tokens de acceso activos que pueda tener.
+      await modelo.revocarTodosLosTokensPorDocumento(documento);
+      console.log(`[OK] Todos los tokens de acceso del documento ${documento} han sido revocados.`);
+
+      // 3. Enviamos un correo de confirmación de que la cuenta fue eliminada.
+      const asunto = 'Confirmación de eliminación de cuenta en TongueTrek';
+      const cuerpoHtml = `
+          Hola ${nombre},<br><br>
+          Te confirmamos que tu cuenta en TongueTrek asociada al correo <b>${correo}</b> ha sido eliminada permanentemente.<br><br>
+          Lamentamos verte partir. Si esto fue un error, por favor, contacta a soporte.<br><br>
+          Saludos,<br>
+          <b>Equipo TongueTrek</b>
+      `;
+      await enviarCorreo(correo, asunto, cuerpoHtml);
+      console.log(`[OK] Correo de eliminación enviado a ${correo}.`);
+
+      return res.status(200).json({ mensaje: 'Tu cuenta ha sido eliminada exitosamente. Se ha enviado un correo de confirmación.' });
+
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Error al procesar la eliminación de la cuenta.' });
+    }
+  }
+
 }
 
 module.exports = ClienteControlador;
