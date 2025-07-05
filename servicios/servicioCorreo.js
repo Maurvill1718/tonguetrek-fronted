@@ -29,7 +29,7 @@ transporter.verify().then(() => {
 const enviarCorreo = async (to, subject, html) => {
     try {
         await transporter.sendMail({
-            from: `"Tu Aplicación" <${process.env.EMAIL_USER}>`,
+            from: `"TongueTrek" <${process.env.EMAIL_USER}>`,
             to: to,
             subject: subject,
             html: html,
