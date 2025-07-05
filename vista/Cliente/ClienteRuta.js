@@ -5,24 +5,24 @@ const ClienteControlador = require('../../controlador/Clientes/ClienteControlado
 const authMiddleware = require('../../middleware/authMiddleware.js');
 
 // --- Rutas Públicas (no requieren token) ---
-
-router.post('/recuperar/restablecer', ClienteControlador.restablecerContrasena);
-router.post('/recuperar/validar', ClienteControlador.validarRespuestas);
 router.post('/cliente', ClienteControlador.crearCliente);
 router.post('/login', ClienteControlador.validarCredencial);
-router.get('/recuperar/preguntas/:documento', ClienteControlador.obtenerPreguntas);
+
+// --- NUEVAS RUTAS DE RECUPERACIÓN INTERACTIVAS ---
+// Inicia el proceso y devuelve la primera pregunta al azar
+router.post('/recuperar/iniciar', ClienteControlador.iniciarRecuperacion);
+
+// Valida la respuesta a una pregunta y avanza en el ciclo
+router.post('/recuperar/validar-pregunta', ClienteControlador.validarRespuestaInteractiva);
+
+// Ruta final para restablecer la contraseña con el resetToken
+router.post('/recuperar/restablecer', ClienteControlador.restablecerContrasena);
+
 
 // --- Rutas Protegidas (requieren token) ---
-// ✅ NUEVA RUTA: completar perfil por primera vez
 router.post('/perfil', authMiddleware, ClienteControlador.completarPerfil);
-
-// Ruta para eliminar (desactivar) la propia cuenta
-router.delete('/perfil', authMiddleware, ClienteControlador.eliminarCuenta);
-
-// ✅ RUTA EXISTENTE: modificar perfil ya creado
 router.put('/perfil', authMiddleware, ClienteControlador.modificarPerfil);
-
-// ✅ RUTA EXISTENTE: cerrar sesión
+router.delete('/perfil', authMiddleware, ClienteControlador.eliminarCuenta);
 router.post('/cerrar-sesion', authMiddleware, ClienteControlador.cerrarSesion);
 
 module.exports = router;

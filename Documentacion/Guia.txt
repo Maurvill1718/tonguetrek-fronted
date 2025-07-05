@@ -1,0 +1,137 @@
+Guía de Demostración
+Usuario de Prueba:
+
+Nombre: Mauro Villegas (Demo)
+
+Documento: 1030405060
+
+Correo: mauriciovill018@gmail.com
+
+Contraseña: DemoTest123!
+
+Fecha Expedición: 2020-10-10
+
+1. Registro de Usuario
+POST /api/cliente
+
+Body:
+
+JSON
+
+{
+    "t1": "1030405060",
+    "t2": "Mauricio Villegas (Demo)",
+    "t3": "mauriciovill018@gmail.com",
+    "t4": "3123456789",
+    "t5": "DemoTest123!"
+}
+Resultado: Muestras el 201 Created y mencionas que el correo de bienvenida ha sido enviado.
+
+2. Inicio de Sesión
+POST /api/login
+
+Body:
+
+JSON
+
+{
+    "t1": "mauriciovill018@gmail.com",
+    "t2": "DemoTest123!"
+}
+Acción: Copia el token de la respuesta.
+
+3. Completar Perfil de Seguridad
+POST /api/perfil
+
+Authorization: Bearer Token (Pega el token que copiaste).
+
+Body:
+
+JSON
+
+{
+    "direccion": "Universidad de Antioquia",
+    "fechaexpedicion": "2020-10-10",
+    "pregunta1": "Color favorito",
+    "respuesta1": "Verde",
+    "pregunta2": "Segundo nombre",
+    "respuesta2": "Andres",
+    "pregunta3": "Equipo de futbol",
+    "respuesta3": "Medellin"
+}
+Resultado: Muestras el 201 Created.
+
+4. Iniciar Recuperación de Cuenta
+POST /api/recuperar/iniciar
+
+Body:
+
+JSON
+
+{
+    "documento": "1030405060"
+}
+Resultado: Recibes la primera pregunta al azar y un sessionToken.
+
+Acción: Copia el sessionToken.
+
+5. Proceso de Validación Interactivo
+(A) Primer Intento (Fallido a propósito)
+
+POST /api/recuperar/validar-pregunta
+
+Body: (Usa el sessionToken y una respuesta incorrecta).
+
+JSON
+
+{
+    "sessionToken": "pega_el_primer_sessionToken_aqui",
+    "respuesta": "Respuesta incorrecta",
+    "fechaexpedicion": "2020-10-10"
+}
+Resultado: Muestras el error 401 que dice "Te quedan 2 intento(s)" y que te da una nueva pregunta y un nuevo sessionToken.
+
+Acción: Copia el NUEVO sessionToken.
+
+(B) Segundo Intento (Correcto)
+
+POST /api/recuperar/validar-pregunta
+
+Body: (Usa el NUEVO sessionToken y la respuesta correcta a la segunda pregunta que te hizo).
+
+JSON
+
+{
+    "sessionToken": "pega_el_nuevo_sessionToken_aqui",
+    "respuesta": "La respuesta correcta",
+    "fechaexpedicion": "2020-10-10"
+}
+Resultado: El proceso continúa hasta que hayas respondido las 3 preguntas correctamente. La respuesta final te dará el resetToken.
+
+Acción: Copia el resetToken final.
+
+6. Restablecer la Contraseña
+POST /api/recuperar/restablecer
+
+Body:
+
+JSON
+
+{
+    "resetToken": "pega_el_resetToken_final_aqui",
+    "nuevaContrasena": "NuevaClaveFinal2025!"
+}
+Resultado: Muestras el 200 OK y mencionas que se envió el correo de confirmación.
+
+7. Verificación Final
+POST /api/login
+
+Body:
+
+JSON
+
+{
+    "t1": "mauriciovill018@gmail.com",
+    "t2": "NuevaClaveFinal2025!"
+}
+Resultado: Un inicio de sesión exitoso.
