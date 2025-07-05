@@ -1,17 +1,14 @@
-Guía de Demostración
+Guía de Demostración 
 Usuario de Prueba:
-
-Nombre: Mauro Villegas (Demo)
-
-Documento: 1030405060
 
 Correo: mauriciovill018@gmail.com
 
-Contraseña: DemoTest123!
+Documento: 1030405060
 
-Fecha Expedición: 2020-10-10
+Contraseña Inicial: DemoTest123!
 
-1. Registro de Usuario
+
+Paso 1: Registro de Usuario
 POST /api/cliente
 
 Body:
@@ -25,9 +22,9 @@ JSON
     "t4": "3123456789",
     "t5": "DemoTest123!"
 }
-Resultado: Muestras el 201 Created y mencionas que el correo de bienvenida ha sido enviado.
+Resultado: Muestras el 201 Created y menciona que se envió el correo de bienvenida.
 
-2. Inicio de Sesión
+Paso 2: Inicio de Sesión
 POST /api/login
 
 Body:
@@ -38,9 +35,9 @@ JSON
     "t1": "mauriciovill018@gmail.com",
     "t2": "DemoTest123!"
 }
-Acción: Copia el token de la respuesta.
+Acción: Copia el token de acceso. Lo necesitarás.
 
-3. Completar Perfil de Seguridad
+Paso 3: Completar Perfil de Seguridad
 POST /api/perfil
 
 Authorization: Bearer Token (Pega el token que copiaste).
@@ -61,7 +58,31 @@ JSON
 }
 Resultado: Muestras el 201 Created.
 
-4. Iniciar Recuperación de Cuenta
+Paso 4: Cerrar Sesión
+POST /api/cerrar-sesion
+
+Authorization: Bearer Token (Pega el mismo token de acceso).
+
+Resultado: Muestras el 200 OK con el mensaje "Sesión cerrada y token revocado...". 
+
+Paso 5: Verificar que la Sesión se Cerró
+Propósito: Demostrar que el token revocado ya no da acceso.
+
+PUT /api/perfil (Intentamos modificar el perfil con el token viejo).
+
+Authorization: Bearer Token (Pega el token que acabas de revocar).
+
+Body:
+
+JSON
+
+{
+    "t2": "Intento de Modificación",
+    "t4": "12345"
+}
+Resultado: Muestras el error 401 Unauthorized con el mensaje "Token inválido o revocado". Esto prueba que el cierre de sesión fue efectivo.
+
+Paso 6: Iniciar Recuperación de Cuenta
 POST /api/recuperar/iniciar
 
 Body:
@@ -71,11 +92,11 @@ JSON
 {
     "documento": "1030405060"
 }
-Resultado: Recibes la primera pregunta al azar y un sessionToken.
+Resultado: Recibes la primera pregunta y un sessionToken.
 
 Acción: Copia el sessionToken.
 
-5. Proceso de Validación Interactivo
+8. Proceso de Validación Interactivo
 (A) Primer Intento (Fallido a propósito)
 
 POST /api/recuperar/validar-pregunta
@@ -110,7 +131,7 @@ Resultado: El proceso continúa hasta que hayas respondido las 3 preguntas corre
 
 Acción: Copia el resetToken final.
 
-6. Restablecer la Contraseña
+Paso 9: Restablecer la Contraseña 
 POST /api/recuperar/restablecer
 
 Body:
@@ -121,9 +142,9 @@ JSON
     "resetToken": "pega_el_resetToken_final_aqui",
     "nuevaContrasena": "NuevaClaveFinal2025!"
 }
-Resultado: Muestras el 200 OK y mencionas que se envió el correo de confirmación.
+Resultado: Recibirás un 200 OK y un correo de confirmación.
 
-7. Verificación Final
+Paso 10: Verificación Final
 POST /api/login
 
 Body:
