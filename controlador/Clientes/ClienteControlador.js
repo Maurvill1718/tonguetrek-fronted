@@ -306,91 +306,91 @@ const sessionToken = ClienteControlador.generarTokenDeRecuperacion(cliente, preg
     }
 }
 
+s// Reemplaza este método en tu ClienteControlador
 static async validarRespuestaInteractiva(req, res) {
     try {
-      const { sessionToken, respuesta, fechaexpedicion } = req.body;
-      if (!sessionToken || !respuesta || !fechaexpedicion) {
-        return res.status(400).json({ error: 'El token de sesión, la respuesta y la fecha son requeridos.' });
-      }
+        const { sessionToken, respuesta, fechaexpedicion } = req.body;
+        if (!sessionToken || !respuesta || !fechaexpedicion) {
+            return res.status(400).json({ error: 'El token de sesión, la respuesta y la fecha son requeridos.' });
+        }
 
-      let decoded;
-      try {
-        decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
-        if (decoded.purpose !== 'recovery-session') throw new Error();
-      } catch (error) {
-        return res.status(401).json({ error: 'Token de sesión inválido o expirado. Vuelve a iniciar el proceso.' });
-      }
+        let decoded;
+        try {
+            decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+            if (decoded.purpose !== 'recovery-session') throw new Error();
+        } catch (error) {
+            return res.status(401).json({ error: 'Token de sesión inválido o expirado. Vuelve a iniciar el proceso.' });
+        }
 
-      const { id: clienteId, documento, preguntaActualIndex, preguntasRestantes } = decoded;
-      
-      const [perfil, cliente] = await Promise.all([
-        modelo.buscarPerfilPorClienteId(clienteId),
-        modelo.buscarClientePorId(clienteId)
-      ]);
+        const { id: clienteId, documento, preguntaActualIndex, preguntasRestantes } = decoded;
+        
+        const [perfil, cliente] = await Promise.all([
+            modelo.buscarPerfilPorClienteId(clienteId),
+            modelo.buscarClientePorId(clienteId)
+        ]);
 
-      if (!perfil || !cliente) return res.status(404).json({ error: 'Usuario no encontrado.' });
-      if (cliente.estado.startsWith('bloqueado')) return res.status(403).json({ error: 'La cuenta ha sido bloqueada.' });
+        if (!perfil || !cliente) return res.status(404).json({ error: 'Usuario no encontrado.' });
+        if (cliente.estado.startsWith('bloqueado')) return res.status(403).json({ error: 'La cuenta ha sido bloqueada.' });
 
-      const fechaExpedicionBD = new Date(perfil.fechaexpedicion).toISOString().split('T')[0];
-      const fechaCorrecta = (fechaexpedicion === fechaExpedicionBD);
-      
-      const respuestaCorrectaHash = perfil[`respuesta${preguntaActualIndex}`];
-      const respuestaValida = await bcrypt.compare(respuesta, respuestaCorrectaHash);
+        const fechaExpedicionBD = new Date(perfil.fechaexpedicion).toISOString().split('T')[0];
+        const fechaCorrecta = (fechaexpedicion === fechaExpedicionBD);
+        const respuestaCorrectaHash = perfil[`respuesta${preguntaActualIndex}`];
+        const respuestaValida = await bcrypt.compare(respuesta, respuestaCorrectaHash);
 
-      if (fechaCorrecta && respuestaValida) {
-        // --- Lógica de Éxito (esta parte ya estaba bien) ---
-        if (preguntasRestantes.length === 0) {
-          await modelo.reiniciarIntentosPreguntas(documento);
-          const payloadFinal = { id: clienteId, purpose: 'password-reset' };
-          const resetToken = jwt.sign(payloadFinal, process.env.JWT_SECRET, { expiresIn: '5m' });
-          await modelo.guardarToken(documento, resetToken, jwt.decode(resetToken).exp, 'reseteo');
-          // Aquí iría el correo de éxito si lo necesitaras
-          return res.status(200).json({
-            mensaje: '¡Correcto! Todas las validaciones son correctas. Usa el siguiente token para restablecer tu contraseña.',
-            resetToken: resetToken
-          });
+        // --- ¡NUEVA LÓGICA CORRECTA! ---
+        if (fechaCorrecta && respuestaValida) {
+            // ¡ÉXITO INMEDIATO! Con una sola respuesta correcta es suficiente.
+            await modelo.reiniciarIntentosPreguntas(documento);
+            
+            const payloadFinal = { id: clienteId, purpose: 'password-reset' };
+            const resetToken = jwt.sign(payloadFinal, process.env.JWT_SECRET, { expiresIn: '5m' });
+            
+            await modelo.guardarToken(documento, resetToken, jwt.decode(resetToken).exp, 'reseteo');
+
+            const asuntoExito = 'Identidad Verificada - Proceso de Recuperación';
+            const cuerpoHtmlExito = `Hola ${cliente.nombre},<br><br>Hemos verificado tu identidad correctamente. Usa el pase temporal a continuación para establecer una nueva contraseña.`;
+            await enviarCorreo(cliente.correo, asuntoExito, cuerpoHtmlExito);
+            
+            return res.status(200).json({
+                mensaje: '¡Identidad validada correctamente! Usa el siguiente token para restablecer tu contraseña.',
+                resetToken: resetToken
+            });
+
         } else {
-          let indiceAzar = Math.floor(Math.random() * preguntasRestantes.length);
-          let siguientePreguntaIndex = preguntasRestantes.splice(indiceAzar, 1)[0];
-          const nextSessionToken = this.generarTokenDeRecuperacion(cliente, siguientePreguntaIndex, preguntasRestantes);
-          return res.status(200).json({
-            mensaje: '¡Respuesta correcta! Aquí tienes la siguiente pregunta.',
-            pregunta: perfil[`pregunta${siguientePreguntaIndex}`],
-            sessionToken: nextSessionToken
-          });
-        }
-      } else {
-        // --- INICIO DEL BLOQUE DE FALLO CON DEPURACIÓN ---
-        console.log('[FALLO] La respuesta o la fecha son incorrectas.');
-        await modelo.incrementarIntentosPreguntas(documento);
-        
-        const usuarioActualizado = await modelo.buscarClientePorId(clienteId);
-        const intentosRestantes = MAX_ATTEMPTS - usuarioActualizado.intentos_preguntas_fallidos;
-        console.log(`[INFO] Intentos restantes para el usuario: ${intentosRestantes}`);
-
-        if (intentosRestantes <= 0) {
-            console.log('[BLOQUEO] Límite de intentos alcanzado. Procediendo a bloquear la cuenta...');
-            await modelo.bloquearUsuario(cliente.correo, 'bloqueado_preguntas');
-            console.log(`[OK] Cuenta de ${cliente.correo} marcada como 'bloqueado_preguntas' en la BD.`);
+            // --- LÓGICA DE FALLO: Se da otra pregunta ---
+            await modelo.incrementarIntentosPreguntas(documento);
+            const usuarioActualizado = await modelo.buscarClientePorId(clienteId);
+            const intentosRestantes = MAX_ATTEMPTS - usuarioActualizado.intentos_preguntas_fallidos;
             
-            console.log('[EMAIL] Preparando correo de notificación de bloqueo...');
-            const asuntoBloqueo = 'Alerta de Seguridad: Cuenta Bloqueada por Intentos de Recuperación';
-            const cuerpoHtmlBloqueo = `Hola ${cliente.nombre},<br><br>Te informamos que tu cuenta ha sido bloqueada debido a 3 intentos fallidos al responder las preguntas de seguridad. Para proteger tu información, el acceso ha sido restringido. Por favor, contacta a soporte para recibir ayuda.<br><br>Saludos,<br><b>Equipo TongueTrek</b>`;
-            
-            await enviarCorreo(cliente.correo, asuntoBloqueo, cuerpoHtmlBloqueo);
-            console.log(`[OK] Correo de bloqueo enviado a ${cliente.correo}.`);
+            if (intentosRestantes <= 0) {
+                await modelo.bloquearUsuario(cliente.correo, 'bloqueado_preguntas');
+                // Enviar correo de bloqueo...
+                return res.status(403).json({ error: 'Respuesta incorrecta. Has agotado tus 3 intentos y tu cuenta ha sido bloqueada.' });
+            }
 
-            return res.status(403).json({ error: 'Respuesta incorrecta. Has agotado tus intentos y tu cuenta ha sido bloqueada.' });
+            // Si todavía le quedan preguntas en la lista para un nuevo intento
+            if(preguntasRestantes.length > 0) {
+                let indiceAzar = Math.floor(Math.random() * preguntasRestantes.length);
+                let siguientePreguntaIndex = preguntasRestantes.splice(indiceAzar, 1)[0];
+                // Generamos un nuevo ticket con la nueva pregunta y las preguntas que quedan
+                const nextSessionToken = ClienteControlador.generarTokenDeRecuperacion(cliente, siguientePreguntaIndex, preguntasRestantes);
+                
+                return res.status(401).json({
+                    error: `Respuesta o fecha incorrecta. Te quedan ${intentosRestantes} intento(s) en total. Siguiente pregunta:`,
+                    pregunta: perfil[`pregunta${siguientePreguntaIndex}`],
+                    sessionToken: nextSessionToken
+                });
+            } else {
+               // Si falló la última pregunta que le quedaba, se bloquea.
+               await modelo.bloquearUsuario(cliente.correo, 'bloqueado_preguntas');
+               return res.status(403).json({ error: 'Respuesta incorrecta. Has agotado tus 3 intentos y tu cuenta ha sido bloqueada.' });
+            }
         }
-        
-        // --- FIN DEL BLOQUE DE DEPURACIÓN ---
-        return res.status(401).json({ error: `Respuesta o fecha incorrecta. Te quedan ${intentosRestantes} intento(s). El proceso de recuperación se reiniciará.` });
-      }
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Error del servidor al validar la respuesta.' });
+        console.error(error);
+        return res.status(500).json({ error: 'Error del servidor al validar la respuesta.' });
     }
-  }
+}
 
   static async restablecerContrasena(req, res) {
     try {
