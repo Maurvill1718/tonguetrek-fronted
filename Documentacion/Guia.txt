@@ -156,3 +156,15 @@ JSON
     "t2": "NuevaClaveFinal2025!"
 }
 Resultado: Un inicio de sesión exitoso.
+Paso 8: Eliminar la Cuenta
+Propósito: Demostrar que un usuario autenticado puede desactivar su propia cuenta de forma segura.
+
+Método: DELETE
+
+Ruta: /api/perfil
+
+Authorization: Bearer Token (Pega el nuevo token de acceso que obtuviste en el paso anterior).
+
+Body: Ninguno (No Body).
+
+Resultado: Muestras el 200 OK con el mensaje de eliminación y mencionas que se envió el correo final de confirmación.

@@ -435,7 +435,7 @@ static async validarRespuestaInteractiva(req, res) {
 
   static async eliminarCuenta(req, res) {
     try {
-      // Obtenemos los datos del usuario desde el token verificado por el middleware/
+      // Obtenemos los datos del usuario desde el token verificado por el middleware
       const { id, correo, nombre, documento } = req.usuario;
 
       // 1. Marcamos la cuenta del cliente como 'inactiva' en la tabla clientes
