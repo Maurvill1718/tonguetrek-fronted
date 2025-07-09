@@ -306,7 +306,6 @@ const sessionToken = ClienteControlador.generarTokenDeRecuperacion(cliente, preg
     }
 }
 
-s// Reemplaza este método en tu ClienteControlador
 static async validarRespuestaInteractiva(req, res) {
     try {
         const { sessionToken, respuesta, fechaexpedicion } = req.body;
@@ -436,7 +435,7 @@ static async validarRespuestaInteractiva(req, res) {
 
   static async eliminarCuenta(req, res) {
     try {
-      // Obtenemos los datos del usuario desde el token verificado por el middleware
+      // Obtenemos los datos del usuario desde el token verificado por el middleware/
       const { id, correo, nombre, documento } = req.usuario;
 
       // 1. Marcamos la cuenta del cliente como 'inactiva' en la tabla clientes
