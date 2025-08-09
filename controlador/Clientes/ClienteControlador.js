@@ -208,6 +208,17 @@ static generarTokenDeRecuperacion(cliente, preguntaActualIndex, preguntasRestant
     }
   }
 
+  static async estadoPerfil(req, res) {
+    try {
+      const { id: idUsuario } = req.usuario;
+      const perfil = await modelo.buscarPerfilPorClienteId(idUsuario);
+      const perfilCompleto = Boolean(perfil && perfil.pregunta1);
+      return res.status(200).json({ perfilCompleto });
+    } catch (error) {
+      return res.status(500).json({ error: 'Error al consultar el estado del perfil.' });
+    }
+  }
+
   static async cerrarSesion(req, res) {
     try {
       const tokenARevocar = req.token;
@@ -223,20 +234,30 @@ static generarTokenDeRecuperacion(cliente, preguntaActualIndex, preguntasRestant
       const { id: idUsuario, documento } = req.usuario;
 
       const perfilExistente = await modelo.buscarPerfilPorClienteId(idUsuario);
-      if (perfilExistente) {
-        return res.status(409).json({ error: 'Este usuario ya ha completado su perfil.' });
-      }
 
       const {
         direccion,
         fechaexpedicion, 
         pregunta1, respuesta1,
         pregunta2, respuesta2,
-        pregunta3, respuesta3
+        pregunta3, respuesta3,
+        contrasena
       } = req.body;
 
       if (!direccion || !fechaexpedicion || !pregunta1 || !respuesta1 || !pregunta2 || !respuesta2 || !pregunta3 || !respuesta3) {
         return res.status(400).json({ error: 'La dirección, fecha de expedición y las 3 preguntas/respuestas son requeridas.' });
+      }
+
+      // Si ya existe, exigir verificación con contraseña
+      if (perfilExistente) {
+        if (!contrasena) {
+          return res.status(401).json({ error: 'Se requiere la contraseña actual para editar las preguntas.' });
+        }
+        const usuario = await modelo.buscarClientePorId(idUsuario);
+        const passOk = await bcrypt.compare(contrasena, usuario.contrasena);
+        if (!passOk) {
+          return res.status(401).json({ error: 'Contraseña incorrecta.' });
+        }
       }
 
       const saltRounds = 10;
@@ -246,20 +267,34 @@ static generarTokenDeRecuperacion(cliente, preguntaActualIndex, preguntasRestant
         bcrypt.hash(respuesta3, saltRounds)
       ]);
 
-      await modelo.crearPerfil(
-        idUsuario,
-        documento,
-        direccion,
-        fechaexpedicion, 
-        pregunta1,
-        pregunta2,
-        pregunta3,
-        hash1,
-        hash2,
-        hash3
-      );
+      if (perfilExistente) {
+        await modelo.actualizarPerfil(
+          idUsuario,
+          direccion,
+          fechaexpedicion,
+          pregunta1,
+          pregunta2,
+          pregunta3,
+          hash1,
+          hash2,
+          hash3
+        );
+      } else {
+        await modelo.crearPerfil(
+          idUsuario,
+          documento,
+          direccion,
+          fechaexpedicion, 
+          pregunta1,
+          pregunta2,
+          pregunta3,
+          hash1,
+          hash2,
+          hash3
+        );
+      }
 
-      return res.status(201).json({ mensaje: 'Perfil completado y guardado exitosamente.' });
+      return res.status(201).json({ mensaje: 'Perfil de seguridad guardado exitosamente.' });
 
     } catch (error) {
       console.error(error);
@@ -437,6 +472,43 @@ static async validarRespuestaInteractiva(req, res) {
     try {
       // Obtenemos los datos del usuario desde el token verificado por el middleware
       const { id, correo, nombre, documento } = req.usuario;
+      const { contrasena, viaPreguntas, sessionToken, respuesta, fechaexpedicion } = req.body || {};
+
+      // 0. Validación de identidad
+      const usuario = await modelo.buscarClientePorId(id);
+      if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+      let identidadVerificada = false;
+
+      // Opción A: con contraseña actual
+      if (contrasena) {
+        identidadVerificada = await bcrypt.compare(contrasena, usuario.contrasena);
+        if (!identidadVerificada) return res.status(401).json({ error: 'Contraseña incorrecta.' });
+      }
+
+      // Opción B: con preguntas (sessionToken del flujo de preguntas + respuesta y fecha)
+      if (!identidadVerificada && viaPreguntas) {
+        try {
+          const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+          if (decoded.purpose !== 'recovery-session' || decoded.id !== id) {
+            return res.status(401).json({ error: 'Token de sesión inválido.' });
+          }
+          const perfil = await modelo.buscarPerfilPorClienteId(id);
+          if (!perfil) return res.status(400).json({ error: 'No hay preguntas configuradas.' });
+          const fechaExpedicionBD = new Date(perfil.fechaexpedicion).toISOString().split('T')[0];
+          const fechaCorrecta = (fechaexpedicion === fechaExpedicionBD);
+          const respuestaHash = perfil[`respuesta${decoded.preguntaActualIndex}`];
+          const respuestaOk = await bcrypt.compare(respuesta, respuestaHash);
+          identidadVerificada = fechaCorrecta && respuestaOk;
+          if (!identidadVerificada) return res.status(401).json({ error: 'Validación por preguntas fallida.' });
+        } catch (err) {
+          return res.status(401).json({ error: 'Token de sesión inválido o expirado.' });
+        }
+      }
+
+      if (!identidadVerificada) {
+        return res.status(400).json({ error: 'Se requiere contraseña o validación por preguntas para eliminar la cuenta.' });
+      }
 
       // 1. Marcamos la cuenta del cliente como 'inactiva' en la tabla clientes
       await modelo.desactivarCuenta(id);

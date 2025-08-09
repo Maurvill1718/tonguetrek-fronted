@@ -68,6 +68,12 @@ const ClienteModelo = {
     return resultado;
   },
 
+  actualizarPerfil: async (clienteId, direccion, fechaExp, p1, p2, p3, r1Hash, r2Hash, r3Hash) => {
+    const sql = `UPDATE perfil SET direccion = ?, fechaexpedicion = ?, pregunta1 = ?, pregunta2 = ?, pregunta3 = ?, respuesta1 = ?, respuesta2 = ?, respuesta3 = ? WHERE cliente_id = ?`;
+    const [resultado] = await pool.execute(sql, [direccion, fechaExp, p1, p2, p3, r1Hash, r2Hash, r3Hash, clienteId]);
+    return resultado;
+  },
+
   buscarPerfilPorClienteId: async (clienteId) => {
     const [rows] = await pool.execute('SELECT * FROM perfil WHERE cliente_id = ?', [clienteId]);
     return rows[0];

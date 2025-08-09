@@ -22,6 +22,7 @@ router.post('/recuperar/restablecer', ClienteControlador.restablecerContrasena);
 // --- Rutas Protegidas (requieren token) ---
 router.post('/perfil', authMiddleware, ClienteControlador.completarPerfil);
 router.put('/perfil', authMiddleware, ClienteControlador.modificarPerfil);
+router.get('/perfil/estado', authMiddleware, ClienteControlador.estadoPerfil);
 router.delete('/perfil', authMiddleware, ClienteControlador.eliminarCuenta);
 router.post('/cerrar-sesion', authMiddleware, ClienteControlador.cerrarSesion);
 
