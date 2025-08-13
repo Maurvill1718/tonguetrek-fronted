@@ -1,170 +1,63 @@
-Guía de Demostración 
-Usuario de Prueba:
+Guía de Demostración (Frontend)
 
+Datos de prueba (opcionales):
 Correo: mauriciovill018@gmail.com
-
 Documento: 1030405060
+Contraseña: DemoTest123!
 
-Contraseña Inicial: DemoTest123!
+Arranque rápido
+- Backend: npm run dev (http://localhost:4545)
+- Frontend: cd frontend && npm run dev (http://localhost:5173)
+- Frontend usa VITE_API_BASE_URL del archivo frontend/.env
 
+Flujo con el Frontend
+1) Registro
+   - Ir a Inicio -> “Comenzar ahora” o a /registro
+   - Completar t1 (documento), t2 (nombre), t3 (correo), t4 (teléfono), t5 (contraseña)
+   - Se envía correo de bienvenida
 
-Paso 1: Registro de Usuario
-POST /api/cliente
+2) Inicio de sesión
+   - Ir a /login
+   - Al entrar, se guarda el token y se redirige a Perfil; en Home verás “Hola, {nombre}”
 
-Body:
+3) Perfil (datos básicos)
+   - Actualizar nombre y teléfono en la tarjeta “Información de cuenta”
+   - Cambios impactan el saludo del Home de inmediato
 
-JSON
+4) Preguntas de seguridad (configurar/editar)
+   - En Perfil, “Preguntas de seguridad” -> Configurar o Editar
+   - Campos: dirección, fecha de expedición (YYYY-MM-DD), 3 preguntas y sus respuestas
+   - Si ya estaban configuradas, se exige la contraseña actual para guardar
 
-{
-    "t1": "1030405060",
-    "t2": "Mauricio Villegas (Demo)",
-    "t3": "mauriciovill018@gmail.com",
-    "t4": "3123456789",
-    "t5": "DemoTest123!"
-}
-Resultado: Muestras el 201 Created y menciona que se envió el correo de bienvenida.
+5) Cerrar sesión
+   - Botón “Cerrar sesión” en Perfil
+   - Revoca el token activo en el servidor
 
-Paso 2: Inicio de Sesión
-POST /api/login
+6) Eliminación de cuenta (segura)
+   - En Perfil, “Eliminar cuenta”
+   - Se solicitará la contraseña; si no la recuerdas, puedes validar con preguntas de seguridad (una respuesta correcta + fecha)
+   - Al eliminar, se desactiva la cuenta y se revocan tokens
 
-Body:
+7) Recuperación de cuenta (olvidé mi contraseña)
+   - Ir a “Recuperar” (Inicio -> botón Recuperar) o /recuperar
+   - Paso A: ingresar documento -> recibes pregunta y sessionToken
+   - Paso B: responder pregunta + fecha; si aciertas, obtienes resetToken
+   - Paso C: ir a /recuperar/reset y establecer nueva contraseña
 
-JSON
+Notas de seguridad
+- Login genera token JWT (tipo acceso) y se guarda en BD; middleware valida firma y estado en BD
+- Intentos fallidos de login y de preguntas incrementan contadores y pueden bloquear la cuenta
+- Editar preguntas requiere contraseña si ya estaban configuradas
+- Eliminar cuenta exige contraseña o validación por preguntas
 
-{
-    "t1": "mauriciovill018@gmail.com",
-    "t2": "DemoTest123!"
-}
-Acción: Copia el token de acceso. Lo necesitarás.
-
-Paso 3: Completar Perfil de Seguridad
-POST /api/perfil
-
-Authorization: Bearer Token (Pega el token que copiaste).
-
-Body:
-
-JSON
-
-{
-    "direccion": "Universidad de Antioquia",
-    "fechaexpedicion": "2020-10-10",
-    "pregunta1": "Color favorito",
-    "respuesta1": "Verde",
-    "pregunta2": "Segundo nombre",
-    "respuesta2": "Andres",
-    "pregunta3": "Equipo de futbol",
-    "respuesta3": "Medellin"
-}
-Resultado: Muestras el 201 Created.
-
-Paso 4: Cerrar Sesión
-POST /api/cerrar-sesion
-
-Authorization: Bearer Token (Pega el mismo token de acceso).
-
-Resultado: Muestras el 200 OK con el mensaje "Sesión cerrada y token revocado...". 
-
-Paso 5: Verificar que la Sesión se Cerró
-Propósito: Demostrar que el token revocado ya no da acceso.
-
-PUT /api/perfil (Intentamos modificar el perfil con el token viejo).
-
-Authorization: Bearer Token (Pega el token que acabas de revocar).
-
-Body:
-
-JSON
-
-{
-    "t2": "Intento de Modificación",
-    "t4": "12345"
-}
-Resultado: Muestras el error 401 Unauthorized con el mensaje "Token inválido o revocado". Esto prueba que el cierre de sesión fue efectivo.
-
-Paso 6: Iniciar Recuperación de Cuenta
-POST /api/recuperar/iniciar
-
-Body:
-
-JSON
-
-{
-    "documento": "1030405060"
-}
-Resultado: Recibes la primera pregunta y un sessionToken.
-
-Acción: Copia el sessionToken.
-
-8. Proceso de Validación Interactivo
-(A) Primer Intento (Fallido a propósito)
-
-POST /api/recuperar/validar-pregunta
-
-Body: (Usa el sessionToken y una respuesta incorrecta).
-
-JSON
-
-{
-    "sessionToken": "pega_el_primer_sessionToken_aqui",
-    "respuesta": "Respuesta incorrecta",
-    "fechaexpedicion": "2020-10-10"
-}
-Resultado: Muestras el error 401 que dice "Te quedan 2 intento(s)" y que te da una nueva pregunta y un nuevo sessionToken.
-
-Acción: Copia el NUEVO sessionToken.
-
-(B) Segundo Intento (Correcto)
-
-POST /api/recuperar/validar-pregunta
-
-Body: (Usa el NUEVO sessionToken y la respuesta correcta a la segunda pregunta que te hizo).
-
-JSON
-
-{
-    "sessionToken": "pega_el_nuevo_sessionToken_aqui",
-    "respuesta": "La respuesta correcta",
-    "fechaexpedicion": "2020-10-10"
-}
-Resultado: El proceso continúa hasta que hayas respondido las 3 preguntas correctamente. La respuesta final te dará el resetToken.
-
-Acción: Copia el resetToken final.
-
-Paso 9: Restablecer la Contraseña 
-POST /api/recuperar/restablecer
-
-Body:
-
-JSON
-
-{
-    "resetToken": "pega_el_resetToken_final_aqui",
-    "nuevaContrasena": "NuevaClaveFinal2025!"
-}
-Resultado: Recibirás un 200 OK y un correo de confirmación.
-
-Paso 10: Verificación Final
-POST /api/login
-
-Body:
-
-JSON
-
-{
-    "t1": "mauriciovill018@gmail.com",
-    "t2": "NuevaClaveFinal2025!"
-}
-Resultado: Un inicio de sesión exitoso.
-Paso 8: Eliminar la Cuenta
-Propósito: Demostrar que un usuario autenticado puede desactivar su propia cuenta de forma segura.
-
-Método: DELETE
-
-Ruta: /api/perfil
-
-Authorization: Bearer Token (Pega el nuevo token de acceso que obtuviste en el paso anterior).
-
-Body: Ninguno (No Body).
-
-Resultado: Muestras el 200 OK con el mensaje de eliminación y mencionas que se envió el correo final de confirmación.
+Referencia de endpoints (para pruebas con Postman)
+- POST /api/cliente (registro)
+- POST /api/login (login)
+- GET /api/perfil/estado (estado de preguntas)
+- POST /api/perfil (crear/editar preguntas; para editar incluye contrasena)
+- PUT /api/perfil (actualizar nombre y teléfono)
+- POST /api/cerrar-sesion (revocar token actual)
+- DELETE /api/perfil (eliminar cuenta con contrasena o viaPreguntas + sessionToken + respuesta + fechaexpedicion)
+- POST /api/recuperar/iniciar (iniciar preguntas)
+- POST /api/recuperar/validar-pregunta (validar)
+- POST /api/recuperar/restablecer (resetear contraseña con resetToken)
