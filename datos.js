@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const rutaCliente = require('./vista/Cliente/ClienteRuta.js'); // Usando la ruta que ya corregimos
+const rutaBilling = require('./facturazion/ruta/BillingRuta.js');
 
 // Cargar variables de entorno
 dotenv.config();
@@ -28,6 +29,7 @@ app.use(express.urlencoded({ extended: true }));
 // 4. REGISTRAR LAS RUTAS (DESPUÉS de los lectores)
 // Como los "traductores" ya están listos, las rutas recibirán los datos correctamente.
 app.use('/api', rutaCliente);
+app.use('/api', rutaBilling);
 
 
 // Iniciar el servidor

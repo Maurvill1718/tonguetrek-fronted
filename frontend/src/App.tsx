@@ -8,6 +8,9 @@ import RecoveryStartPage from './pages/RecoveryStartPage';
 import RecoveryQuestionPage from './pages/RecoveryQuestionPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/HomePage';
+import BillingPlansPage from './pages/facturazion/BillingPlansPage';
+import BillingInvoicesPage from './pages/facturazion/BillingInvoicesPage';
+import BillingInvoiceDetailPage from './pages/facturazion/BillingInvoiceDetailPage';
 import { ThemeProvider } from '@mui/material/styles';
 import theme from './theme';
 import {
@@ -32,6 +35,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           {!isAuthenticated && <Button color="inherit" component={Link} to="/registro">Registro</Button>}
           <Button color="inherit" component={Link} to="/recuperar">Recuperar</Button>
           {isAuthenticated && <Button color="inherit" component={Link} to="/perfil">Perfil</Button>}
+          <Button color="inherit" component={Link} to="/planes">Planes</Button>
+          {isAuthenticated && <Button color="inherit" component={Link} to="/facturas">Facturas</Button>}
           {isAuthenticated && <Button color="inherit" onClick={logout}>Salir</Button>}
         </Toolbar>
       </AppBar>
@@ -60,6 +65,23 @@ export default function App() {
           <Route path="/recuperar" element={<RecoveryStartPage />} />
           <Route path="/recuperar/pregunta" element={<RecoveryQuestionPage />} />
           <Route path="/recuperar/reset" element={<ResetPasswordPage />} />
+          <Route path="/planes" element={<BillingPlansPage />} />
+          <Route
+            path="/facturas"
+            element={
+              <PrivateRoute>
+                <BillingInvoicesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/facturas/:id"
+            element={
+              <PrivateRoute>
+                <BillingInvoiceDetailPage />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="/perfil"
             element={
